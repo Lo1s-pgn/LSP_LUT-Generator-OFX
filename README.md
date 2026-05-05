@@ -38,11 +38,7 @@ This copies the bundle to `**/Library/OFX/Plugins**`, then runs `**make purge**`
 sudo make install SKIP_RESOLVE_OFX_CACHE_PURGE=1
 ```
 
-### Option B — macOS installer (release ZIP)
-
-Download the build from the latest **GitHub Release** and unzip the archive. You should see the `**.ofx.bundle`** and `**install_lsp_lut_generator_ofx.command**` side by side (that `**make**` layout). **Double-click** `**install_lsp_lut_generator_ofx.command`**. Terminal opens, installs to `**~/Library/OFX/Plugins/**`, clears **quarantine** on the installed bundle (use only for bundles you trust), and purges Resolve’s OFX cache the same way as `**make install`**. **Quit DaVinci Resolve** before running the script, then restart the app. If macOS blocks the script the first time, **Control-click** (or right-click) the `**.command`** file → **Open** → confirm.
-
-### Option C — Manual copy
+### Option B — Manual copy
 
 1. Download the build from the latest release and copy into:
   - `**/Library/OFX/Plugins/`** (all users), or  
