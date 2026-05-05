@@ -8,7 +8,7 @@
 - **Analyze & export LUT** — Uses **Source** (graded table), solves at max size, then optionally box-downsamples to **Export LUT size** when that size divides the max.
 - **Export LUT** — Writes a `**.cube`** to a chosen folder; base **LUT name** with automatic `**_001`**, `**_002**`, … suffixes if files already exist.
 
-Example node tree setup for LSP - Simple LUT Generator
+![Example node tree setup for LSP - Simple LUT Generator](./doc/node-tree.png)
 
 ## Platform
 
