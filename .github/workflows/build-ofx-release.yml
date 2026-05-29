@@ -20,7 +20,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Read VERSION triplet
         id: version
@@ -28,12 +28,14 @@ jobs:
 
       - name: Configure and build
         run: |
+          set -euo pipefail
           FAT=ON
           if [ "${{ inputs.macos_universal }}" != "true" ]; then
             FAT=OFF
           fi
           cmake -S . -B build/macos -DCMAKE_BUILD_TYPE=Release -DLUTGEN_OFX_FAT_ARCHS=${FAT}
           cmake --build build/macos --target lutgen_all --parallel "$(sysctl -n hw.ncpu)"
+          test -d "release/LSP_Simple_LUT_Generator_${{ steps.version.outputs.triplet }}_macos"
 
       - name: Upload macOS release folder
         uses: actions/upload-artifact@v4
@@ -43,12 +45,20 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
+      - name: macOS artifact summary
+        if: success()
+        run: |
+          {
+            echo "### macOS build"
+            echo "Download artifact **LSP_Simple_LUT_Generator_${{ steps.version.outputs.triplet }}_macos** from this run's **Artifacts** section (bottom of the page)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
   build-windows:
     name: Windows
     runs-on: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Read VERSION triplet
         id: version
@@ -65,6 +75,7 @@ jobs:
         run: |
           cmake -S . -B build/windows -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
           cmake --build build/windows --target lutgen_all --parallel
+          if not exist "release\LSP_Simple_LUT_Generator_${{ steps.version.outputs.triplet }}_windows" exit /b 1
 
       - name: Upload Windows release folder
         uses: actions/upload-artifact@v4
@@ -73,3 +84,12 @@ jobs:
           path: release/LSP_Simple_LUT_Generator_${{ steps.version.outputs.triplet }}_windows/
           if-no-files-found: error
           retention-days: 90
+
+      - name: Windows artifact summary
+        if: success()
+        shell: bash
+        run: |
+          {
+            echo "### Windows build"
+            echo "Download artifact **LSP_Simple_LUT_Generator_${{ steps.version.outputs.triplet }}_windows** from this run's **Artifacts** section (bottom of the page)."
+          } >> "$GITHUB_STEP_SUMMARY"

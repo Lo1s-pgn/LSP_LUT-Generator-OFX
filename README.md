@@ -78,9 +78,13 @@ To build **macOS and Windows** in the cloud **without publishing automatically**
 1. Commit and **push** the revision you want built (the workflow uses the branch you select on GitHub, not uncommitted local files).
 2. Open the repo on [github.com](https://github.com) → **Actions** → **Build OFX release**.
 3. Click **Run workflow**, choose the branch (usually `main`), optionally toggle **macOS universal binary**, then **Run workflow**.
-4. When both jobs finish (green checkmarks), open the workflow run → **Artifacts** → download:
+4. When the jobs finish, open **that workflow run** (click the run title, e.g. “Build OFX release #2”) and scroll to the bottom → **Artifacts** → download:
    - `LSP_Simple_LUT_Generator_<version>_macos`
    - `LSP_Simple_LUT_Generator_<version>_windows`
+
+   Artifacts are attached to each run, not to the repo home page or Releases tab. If one job failed, only the successful job’s artifact appears (e.g. Windows may be available even when macOS failed).
+
+   From [run #1](https://github.com/Lo1s-pgn/Simple-LUT-Generator/actions/runs/26659697244): the Windows artifact **`LSP_Simple_LUT_Generator_1.0.8_windows`** was uploaded; macOS failed before upload.
 
 Each artifact is the full versioned release folder (contains the `.ofx.bundle`).
 
