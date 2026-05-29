@@ -66,14 +66,17 @@ jobs:
         run: echo "triplet=$(head -n1 VERSION | tr -d '\r' | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
       - name: Configure and build
-        shell: cmd
+        shell: pwsh
         run: |
-          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do (
-            call "%%i\VC\Auxiliary\Build\vcvars64.bat"
-          )
-          cmake -S . -B build/windows -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
-          cmake --build build/windows --target lutgen_all --parallel
-          if not exist "release\LSP_Simple_LUT_Generator_${{ steps.version.outputs.triplet }}_windows" exit /b 1
+          $ErrorActionPreference = 'Stop'
+          $triplet = '${{ steps.version.outputs.triplet }}'
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vsPath) { throw 'Visual Studio with MSVC x64 tools not found' }
+          $vcvars = Join-Path $vsPath 'VC\Auxiliary\Build\vcvars64.bat'
+          cmd /c "`"$vcvars`" && cmake -S . -B build/windows -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl && cmake --build build/windows --target lutgen_all --parallel"
+          $release = Join-Path 'release' "LSP_Simple_LUT_Generator_${triplet}_windows"
+          if (-not (Test-Path $release)) { throw "Release folder not found: $release" }
 
       - name: Upload Windows release folder
         uses: actions/upload-artifact@v6
