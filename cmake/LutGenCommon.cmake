@@ -45,7 +45,9 @@ target_include_directories(lutgen_ofx PRIVATE ${LUTGEN_INCLUDE_DIRS} ${LUTGEN_PL
 target_compile_features(lutgen_ofx PRIVATE cxx_std_20)
 target_compile_options(lutgen_ofx PRIVATE ${LUTGEN_COMPILE_OPTIONS})
 target_compile_definitions(lutgen_ofx PRIVATE ${LUTGEN_COMPILE_DEFINITIONS})
-target_link_libraries(lutgen_ofx PRIVATE ${LUTGEN_LINK_LIBS})
+if(LUTGEN_LINK_LIBS)
+  target_link_libraries(lutgen_ofx PRIVATE ${LUTGEN_LINK_LIBS})
+endif()
 target_link_options(lutgen_ofx PRIVATE ${LUTGEN_LINK_OPTIONS})
 
 set_target_properties(lutgen_ofx PROPERTIES

@@ -26,9 +26,11 @@ set(LUTGEN_COMPILE_OPTIONS
   -fvisibility=hidden
 )
 set(LUTGEN_COMPILE_DEFINITIONS "")
+find_library(LUTGEN_FRAMEWORK_FOUNDATION NAMES Foundation REQUIRED)
+find_library(LUTGEN_FRAMEWORK_APPKIT NAMES AppKit REQUIRED)
 set(LUTGEN_LINK_LIBS
-  "-framework" "Foundation"
-  "-framework" "AppKit"
+  ${LUTGEN_FRAMEWORK_FOUNDATION}
+  ${LUTGEN_FRAMEWORK_APPKIT}
 )
 set(LUTGEN_LINK_OPTIONS
   "-bundle"
