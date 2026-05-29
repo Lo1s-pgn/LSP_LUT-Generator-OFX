@@ -1,0 +1,75 @@
+# Manual release build only — does NOT run on push, tag, or local archive.
+# GitHub → Actions → "Build OFX release" → Run workflow → pick branch → Run workflow
+name: Build OFX release
+
+on:
+  workflow_dispatch:
+    inputs:
+      macos_universal:
+        description: macOS universal binary (arm64 + x86_64)
+        type: boolean
+        default: true
+
+concurrency:
+  group: build-ofx-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-macos:
+    name: macOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read VERSION triplet
+        id: version
+        run: echo "triplet=$(head -n1 VERSION | tr -d '\r' | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Configure and build
+        run: |
+          FAT=ON
+          if [ "${{ inputs.macos_universal }}" != "true" ]; then
+            FAT=OFF
+          fi
+          cmake -S . -B build/macos -DCMAKE_BUILD_TYPE=Release -DLUTGEN_OFX_FAT_ARCHS=${FAT}
+          cmake --build build/macos --target lutgen_all --parallel "$(sysctl -n hw.ncpu)"
+
+      - name: Upload macOS release folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: LSP_Simple_LUT_Generator_${{ steps.version.outputs.triplet }}_macos
+          path: release/LSP_Simple_LUT_Generator_${{ steps.version.outputs.triplet }}_macos/
+          if-no-files-found: error
+          retention-days: 90
+
+  build-windows:
+    name: Windows
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read VERSION triplet
+        id: version
+        shell: bash
+        run: echo "triplet=$(head -n1 VERSION | tr -d '\r' | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Configure and build
+        shell: cmd
+        run: |
+          cmake -S . -B build/windows -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
+          cmake --build build/windows --target lutgen_all --parallel
+
+      - name: Upload Windows release folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: LSP_Simple_LUT_Generator_${{ steps.version.outputs.triplet }}_windows
+          path: release/LSP_Simple_LUT_Generator_${{ steps.version.outputs.triplet }}_windows/
+          if-no-files-found: error
+          retention-days: 90

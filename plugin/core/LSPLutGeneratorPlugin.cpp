@@ -11,14 +11,34 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#if defined(__GNUC__) || defined(__clang__)
 #include <cxxabi.h>
+#endif
 #include <memory>
 #include <mutex>
 #include <string>
 #include <typeinfo>
 #include <vector>
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <shellapi.h>
+#include <windows.h>
+#endif
 
 namespace {
+#if defined(__APPLE__) || defined(_WIN32)
+bool lspLutGenOpenExternal(const std::string& pTarget) {
+#if defined(__APPLE__)
+    const std::string cmd = std::string("open \"") + pTarget + "\"";
+    return std::system(cmd.c_str()) == 0;
+#else
+    const HINSTANCE rc = ShellExecuteA(nullptr, "open", pTarget.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+    return reinterpret_cast<INT_PTR>(rc) > 32;
+#endif
+}
+#endif
 /* DaVinci Resolve (and other hosts) often pass hierarchical names, e.g. "lutGenExportGroup/exportLut", in
    kOfxActionInstanceChanged. Plain "exportLut" still appears on some hosts — accept both. */
 bool lspLutParamLeafIs(const std::string& pName, const char* pLeaf) {
@@ -126,27 +146,24 @@ void LSPLutGeneratorPlugin::updateModeDependentUi() {
 
 void LSPLutGeneratorPlugin::changedParam(const OFX::InstanceChangedArgs& p_Args, const std::string& p_ParamName) {
     if (lspLutParamLeafIs(p_ParamName, "lutGenHelp")) {
-#ifdef __APPLE__
-        std::string cmd = std::string("open \"") + kLutGenRepoUrl + "\"";
-        if (std::system(cmd.c_str()) != 0)
+#if defined(__APPLE__) || defined(_WIN32)
+        if (!lspLutGenOpenExternal(kLutGenRepoUrl))
             LSP_LUTGEN_LOG_ERROR("open_help_url_failed");
 #endif
         return;
     }
     if (lspLutParamLeafIs(p_ParamName, "lutGenReportBug")) {
-#ifdef __APPLE__
-        std::string cmd = std::string("open \"") + kLutGenIssuesUrl + "\"";
-        if (std::system(cmd.c_str()) != 0)
+#if defined(__APPLE__) || defined(_WIN32)
+        if (!lspLutGenOpenExternal(kLutGenIssuesUrl))
             LSP_LUTGEN_LOG_ERROR("open_report_bug_url_failed");
 #endif
         return;
     }
     if (lspLutParamLeafIs(p_ParamName, "lutGenOpenLog")) {
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(_WIN32)
         std::string path = LSPLutGeneratorLog::getLogPath();
         LSPLutGeneratorLog::ensureLogDirectoryExists(path);
-        std::string cmd = "open \"" + path + "\"";
-        if (std::system(cmd.c_str()) != 0)
+        if (!lspLutGenOpenExternal(path))
             LSP_LUTGEN_LOG_ERROR("open_log_failed");
 #endif
         return;
@@ -156,7 +173,7 @@ void LSPLutGeneratorPlugin::changedParam(const OFX::InstanceChangedArgs& p_Args,
         updateModeDependentUi();
 
     if (lspLutParamLeafIs(p_ParamName, "exportLutSetPath")) {
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(_WIN32)
         std::string cur;
         m_ExportFolder->getValue(cur);
         const char* def = cur.empty() ? nullptr : cur.c_str();
@@ -185,12 +202,16 @@ void LSPLutGeneratorPlugin::changedParam(const OFX::InstanceChangedArgs& p_Args,
         LSP_LUTGEN_LOG_ERROR(std::string("export_exception: ") + e.what());
     } catch (...) {
         std::string typeName = "unknown";
+#if defined(__GNUC__) || defined(__clang__)
         if (const std::type_info* ti = abi::__cxa_current_exception_type()) {
             int status = 0;
             char* demangled = abi::__cxa_demangle(ti->name(), nullptr, nullptr, &status);
             typeName = (status == 0 && demangled) ? demangled : ti->name();
             std::free(demangled);
         }
+#else
+        (void)typeName;
+#endif
         LSP_LUTGEN_LOG_ERROR(std::string("export_exception_unknown type=") + typeName);
     }
 }

@@ -1,76 +1,154 @@
 # LSP - Simple LUT Generator (OFX)
 
-**Simple LUT Generator** is an OFX plug-in for DaVinci Resolve. Use one instance to fill the frame with a 3D LUT table and another after your grade to analyze the graded image and export a matching `**.cube`** LUT.
+**Simple LUT Generator** is an OFX plug-in for DaVinci Resolve. Use one instance to fill the frame with a 3D LUT table and another after your grade to analyze the graded image and export a matching **`.cube`** LUT.
 
 ## What it does
 
 - **Generate LUT Table** — Draws the largest feasible n×n×n LUT table for the current resolution.
 - **Analyze & export LUT** — Uses **Source** (graded table), solves at max size, then optionally box-downsamples to **Export LUT size** when that size divides the max.
-- **Export LUT** — Writes a `**.cube`** to a chosen folder; base **LUT name** with automatic `**_001`**, `**_002**`, … suffixes if files already exist.
+- **Export LUT** — Writes a **`.cube`** to a chosen folder; base **LUT name** with automatic `_001`, `_002`, … suffixes if files already exist.
 
 ![Example node tree setup for LSP - Simple LUT Generator](./doc/node-tree.png)
 
 ## Platform
 
-- **macOS** only for now.
+- **macOS** 11.0+ (universal arm64 + x86_64 by default)
+- **Windows** 64-bit (DaVinci Resolve)
+
+Build on each platform separately. Each build writes a **versioned, platform-tagged release folder** containing the `.ofx.bundle`:
+
+| Platform | Release folder (example for v1.0.7) | Inside the bundle |
+|----------|-------------------------------------|-------------------|
+| macOS | `release/LSP_Simple_LUT_Generator_1.0.7_macos/` | `Contents/MacOS/<name>.ofx` |
+| Windows | `release/LSP_Simple_LUT_Generator_1.0.7_windows/` | `Contents/Win64/<name>.ofx` |
+
+Pattern: **`LSP_Simple_LUT_Generator_<version>_<platform>/`**
+
+The bundle inside is always **`LSP_Simple_LUT_Generator_<version>.ofx.bundle`**.
+
+For GitHub Releases, zip each platform folder separately (or ship both in one archive).
 
 ## Build
 
-From the repository root:
+**CMake** is the only build system.
+
+### Prerequisites
+
+- **CMake** 3.22+
+- **macOS:** Xcode Command Line Tools
+- **Windows:** Visual Studio 2022 Build Tools (MSVC), **Ninja** (`winget install Ninja-build.Ninja`)
+
+See [tools/README.md](tools/README.md) for optional build helper scripts.
+
+### macOS
 
 ```bash
-make
+./tools/macos/lutgen_build.sh
 ```
 
-This writes `**plugin/version_gen.h**`, `**build/**` intermediates, and `**release/LSP_Simple_LUT_Generator_<version>.ofx.bundle**`. The Makefile also copies `**install_lsp_lut_generator_ofx.command**` and `**purge_resolve_ofx_cache.command**` into `**release/**` next to the bundle (for zipping a GitHub Release).
+Or manually:
+
+```bash
+cmake -S . -B build/macos -DCMAKE_BUILD_TYPE=Release
+cmake --build build/macos --target lutgen_all
+```
+
+Options at configure time:
+
+- `-DLUTGEN_OFX_FAT_ARCHS=OFF` — single-arch build (host CPU only)
+- `-DOFX_SDK_PATH=...` — alternate OpenFX SDK checkout
+
+### Windows
+
+```powershell
+tools\windows\lutgen_build.bat
+```
+
+Or manually (from a **Developer Command Prompt** or after `vcvars64.bat`):
+
+```powershell
+cmake -S . -B build/windows -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
+cmake --build build/windows --target lutgen_all
+```
+
+## Release builds (GitHub Actions)
+
+To build **macOS and Windows** in the cloud **without publishing automatically**:
+
+1. Commit and **push** the revision you want built (the workflow uses the branch you select on GitHub, not uncommitted local files).
+2. Open the repo on [github.com](https://github.com) → **Actions** → **Build OFX release**.
+3. Click **Run workflow**, choose the branch (usually `main`), optionally toggle **macOS universal binary**, then **Run workflow**.
+4. When both jobs finish (green checkmarks), open the workflow run → **Artifacts** → download:
+   - `LSP_Simple_LUT_Generator_<version>_macos`
+   - `LSP_Simple_LUT_Generator_<version>_windows`
+
+Each artifact is the full versioned release folder (contains the `.ofx.bundle`).
+
+This workflow runs **only when you click Run workflow**. It does **not** run on push, tags, or local archive.
+
+Local archive / version bumps that stay on your Mac do not trigger any GitHub build.
 
 ## Installation
 
-### Option A — Install from your own build (macOS)
+Copy the bundle from **your platform’s output folder** into the host OFX plug-ins directory, then restart DaVinci Resolve.
+
+If the plug-in does not appear after an upgrade, quit Resolve and delete its OFX plug-in cache file (see paths below), then relaunch.
+
+### macOS
+
+Use the bundle inside **`release/LSP_Simple_LUT_Generator_<version>_macos/`**. Copy it to:
+
+- `/Library/OFX/Plugins/` (all users), or
+- `~/Library/OFX/Plugins/` (current user)
+
+**Resolve OFX cache (delete if needed):**  
+`~/Library/Application Support/Blackmagic Design/DaVinci Resolve/OFXPluginCacheV2.xml`
+
+### Windows
+
+Use the bundle inside **`release/LSP_Simple_LUT_Generator_<version>_windows/`**. Copy it to:
+
+`C:\Program Files\Common Files\OFX\Plugins\`
+
+(Elevation required when writing under `Program Files`.)
+
+**Resolve OFX cache (delete if needed):**  
+`%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\OFXPluginCacheV2.xml`
+
+## Log file
+
+| Platform | Path |
+|----------|------|
+| macOS | `~/Library/Application Support/LSP/LutGenerator.log` |
+| Windows | `%APPDATA%\LSP\LutGenerator.log` |
+
+Use **Open Log** in the plug-in SUPPORT section.
+
+## macOS Gatekeeper (unsigned local builds)
+
+For ad-hoc signing after install:
 
 ```bash
-sudo make install
+sudo xattr -dr com.apple.quarantine /Library/OFX/Plugins/LSP_Simple_LUT_Generator_<version>.ofx.bundle
+sudo codesign --force --deep --sign - /Library/OFX/Plugins/LSP_Simple_LUT_Generator_<version>.ofx.bundle
 ```
 
-This copies the bundle to `**/Library/OFX/Plugins**`, then runs `**make purge**` so Resolve rescans plug-ins (removes `**OFXPluginCacheV2.xml**` and legacy `**OFXPluginCache.xml**` for the relevant user home — under `**sudo**`, `**SUDO_USER**`’s Library is used). To install **without** clearing the cache:
+For distribution, use a **Developer ID** certificate and notarization instead.
 
-```bash
-sudo make install SKIP_RESOLVE_OFX_CACHE_PURGE=1
+## Repository layout
+
+```
+CMakeLists.txt          # Root build (macOS + Windows)
+cmake/                  # LutGenVersion, LutGenApple, LutGenWindows, LutGenCommon
+plugin/core/            # Portable OFX logic (CPU render + .cube export)
+plugin/macos/           # AppKit folder dialog
+plugin/windows/         # IFileOpenDialog folder dialog
+openfx-sdk/             # Vendored minimal OpenFX 1.5.1 + Support layer
+tools/                  # Optional build helpers (see tools/README.md)
 ```
 
-### Option B — Manual copy
+Build intermediates: `build/macos/` or `build/windows/`. Shippable output: `release/LSP_Simple_LUT_Generator_<version>_macos/` or `_windows/`.
 
-1. Download the build from the latest release and copy into:
-  - `**/Library/OFX/Plugins/`** (all users), or  
-  - `**~/Library/OFX/Plugins/**` (current user only)
-2. Restart DaVinci Resolve (and purge the OFX cache if the plug-in does not appear — see above).
+## SDK
 
-**Finder shortcut to the system plug-ins folder:** **Go** → **Go to Folder…** (**⇧⌘G**), then enter:
-
-```text
-/Library/OFX/Plugins/
-```
-
-## Remove macOS Gatekeeper warning
-
-Unsigned bundles will be blocked by Gatekeeper :
-
-### Method 1 — Terminal (recommended)
-
-Adjust the bundle name to match your installed version, then run:
-
-```bash
-sudo chmod -R 755 /Library/OFX/Plugins/LSP_Simple_LUT_Generator_1.0.7.ofx.bundle
-sudo chown -R root:wheel /Library/OFX/Plugins/LSP_Simple_LUT_Generator_1.0.7.ofx.bundle
-sudo xattr -dr com.apple.quarantine /Library/OFX/Plugins/LSP_Simple_LUT_Generator_1.0.7.ofx.bundle
-sudo codesign --force --deep --sign - /Library/OFX/Plugins/LSP_Simple_LUT_Generator_1.0.7.ofx.bundle
-```
-
-Then relaunch DaVinci Resolve.
-
-### Method 2 — System Settings
-
-1. Install the bundle to `**/Library/OFX/Plugins/**`.
-2. Open Resolve; if macOS warns, dismiss with **Done**.
-3. Open **System Settings** → **Privacy & Security** and use **Allow Anyway** for the blocked plug-in if shown.
-4. In Resolve: **Preferences** → **Video Plugins** — enable the plug-in, save, quit, and relaunch; confirm **Open Anyway** if prompted.
+Vendored minimal OpenFX SDK in `openfx-sdk/`. Override with `-DOFX_SDK_PATH=...` if needed.

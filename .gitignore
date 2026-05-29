@@ -5,14 +5,12 @@ plugin/version_gen.h
 *.ofx
 *.bundle/
 
-# Local release outputs (bundles + zips) — not on the GitHub repo; upload manually to GitHub Releases
+# Local release outputs — LSP_Simple_LUT_Generator_<version>_<platform>/
 release/
 
-# Optional local copy of the release script (committed template is make_release.sh.example)
-tools/make_release.sh
-
-# Maintainer scripts
+# Local maintainer scripts (not in repo)
 scripts/
+tools/make_release.sh
 
 # Python
 __pycache__/

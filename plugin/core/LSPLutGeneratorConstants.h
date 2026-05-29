@@ -3,7 +3,7 @@
 
 #include "version_gen.h"
 
-/* Identity and OFX capability flags (see Makefile-generated version_gen.h). */
+/* Identity and OFX capability flags (see CMake-generated version_gen.h). */
 /* Effect list / node name in the host. Grouping label shown in host menus. */
 #define kPluginName "LSP - Simple LUT Generator " PLUGIN_VERSION_STR
 #define kPluginGrouping "LSP - Color"

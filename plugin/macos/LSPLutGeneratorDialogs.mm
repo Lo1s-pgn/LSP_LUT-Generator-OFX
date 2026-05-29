@@ -1,7 +1,7 @@
 // Objective-C++: folder chooser for export path; run on main queue (OFX UI rule).
 #import <AppKit/AppKit.h>
 #import <Foundation/Foundation.h>
-#include "LSPLutGeneratorDialogs.h"
+#include "../LSPLutGeneratorDialogs.h"
 #include <string>
 
 static std::string LSPLutGenRunOnMainString(std::string (^p_Block)(void)) {

@@ -1,22 +1,27 @@
 #pragma once
-/* Session header on plug-in construct; errors append with mutex. ~/Library/Application Support/LSP/LutGenerator.log */
+/* Session header on plug-in construct; errors append with mutex. */
 #include <chrono>
-#include <cerrno>
 #include <cstdint>
 #include <cstring>
 #include <cstdlib>
 #include <ctime>
+#include <filesystem>
 #include <fstream>
 #include <mutex>
 #include <string>
-#include <sys/stat.h>
-#if defined(__APPLE__) || defined(__unix__)
-#include <limits.h>
-#include <sys/utsname.h>
-#endif
 #if defined(__APPLE__)
 #include <dlfcn.h>
+#include <limits.h>
 #include <sys/sysctl.h>
+#include <sys/utsname.h>
+#elif defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#elif defined(__unix__)
+#include <limits.h>
+#include <sys/utsname.h>
 #endif
 
 namespace LSPLutGeneratorLog {
@@ -26,43 +31,56 @@ inline std::mutex& getLogMutex() {
     return s_mutex;
 }
 
-inline std::string getLogPath() {
+inline const char* getHomeEnv() {
+#if defined(_WIN32)
+    const char* home = std::getenv("USERPROFILE");
+    if (!home || home[0] == '\0')
+        home = std::getenv("HOME");
+#else
     const char* home = std::getenv("HOME");
+#endif
+    return home;
+}
+
+inline std::string getLogPath() {
+#if defined(_WIN32)
+    const char* appData = std::getenv("APPDATA");
+    if (!appData || appData[0] == '\0')
+        return std::string("LutGenerator.log");
+    return std::string(appData) + "\\LSP\\LutGenerator.log";
+#else
+    const char* home = getHomeEnv();
     if (!home || home[0] == '\0')
         return std::string("/tmp/LutGenerator.log");
     return std::string(home) + "/Library/Application Support/LSP/LutGenerator.log";
+#endif
 }
 
-/** Replace leading $HOME in paths logged to file (avoids writing other users' full home paths when HOME is set). */
 inline std::string sanitizePathForLog(const std::string& p) {
-    const char* home = std::getenv("HOME");
+    const char* home = getHomeEnv();
     if (!home || home[0] == '\0' || p.empty())
         return p;
     std::string hp(home);
+#if defined(_WIN32)
+    if (p.size() >= hp.size() && _stricmp(p.substr(0, hp.size()).c_str(), hp.c_str()) == 0
+        && (p.size() == hp.size() || p[hp.size()] == '\\' || p[hp.size()] == '/'))
+        return std::string("~") + p.substr(hp.size());
+#else
     if (p.size() >= hp.size() && p.compare(0, hp.size(), hp) == 0
         && (p.size() == hp.size() || p[hp.size()] == '/'))
         return std::string("~") + p.substr(hp.size());
+#endif
     return p;
 }
 
 inline bool ensureLogDirectoryExists(const std::string& logPath) {
-    size_t last = logPath.find_last_of('/');
-    if (last == std::string::npos)
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    const fs::path parent = fs::path(logPath).parent_path();
+    if (parent.empty())
         return true;
-    std::string dir = logPath.substr(0, last);
-    struct stat st;
-    if (stat(dir.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
-        return true;
-    size_t pos = 0;
-    for (;;) {
-        pos = dir.find('/', pos + 1);
-        if (pos == std::string::npos)
-            break;
-        std::string sub = dir.substr(0, pos);
-        if (mkdir(sub.c_str(), 0755) != 0 && errno != EEXIST)
-            return false;
-    }
-    return (mkdir(dir.c_str(), 0755) == 0 || errno == EEXIST);
+    fs::create_directories(parent, ec);
+    return !ec;
 }
 
 inline std::string getTimestamp(const char* fmt = "%Y-%m-%d %H:%M:%S") {
@@ -93,6 +111,11 @@ inline int getCoreCount() {
     size_t len = sizeof(ncpu);
     if (sysctlbyname("hw.ncpu", &ncpu, &len, NULL, 0) == 0)
         return ncpu;
+#elif defined(_WIN32)
+    SYSTEM_INFO info{};
+    GetSystemInfo(&info);
+    if (info.dwNumberOfProcessors > 0)
+        return static_cast<int>(info.dwNumberOfProcessors);
 #endif
     return 0;
 }
@@ -120,6 +143,9 @@ inline std::string getCpuInfo() {
     len = sizeof(buf);
     if (sysctlbyname("hw.model", buf, &len, NULL, 0) == 0 && len > 0)
         return std::string(buf, len - 1);
+#elif defined(_WIN32)
+    char buf[256] = "Windows";
+    return std::string(buf);
 #endif
     return "unknown";
 }
@@ -130,6 +156,11 @@ inline std::string getMemoryInfoMB() {
     size_t len = sizeof(memsize);
     if (sysctlbyname("hw.memsize", &memsize, &len, NULL, 0) == 0)
         return std::to_string(memsize / (1024 * 1024)) + " MB";
+#elif defined(_WIN32)
+    MEMORYSTATUSEX st{};
+    st.dwLength = sizeof(st);
+    if (GlobalMemoryStatusEx(&st))
+        return std::to_string(st.ullTotalPhys / (1024 * 1024)) + " MB";
 #endif
     return "unknown";
 }
@@ -145,6 +176,28 @@ inline std::string getPluginBundleRootPath() {
     char resolved[PATH_MAX];
     if (realpath(p.c_str(), resolved))
         p = resolved;
+    const char* marker = ".ofx.bundle";
+    size_t pos = p.find(marker);
+    if (pos == std::string::npos)
+        return "";
+    return p.substr(0, pos + std::strlen(marker));
+}
+#elif defined(_WIN32)
+inline std::string getPluginBundleRootPath() {
+    HMODULE mod = nullptr;
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                            reinterpret_cast<LPCWSTR>(&getPluginBundleRootPath), &mod)
+        || !mod)
+        return "";
+    wchar_t wpath[MAX_PATH];
+    const DWORD n = GetModuleFileNameW(mod, wpath, MAX_PATH);
+    if (n == 0 || n >= MAX_PATH)
+        return "";
+    int needed = WideCharToMultiByte(CP_UTF8, 0, wpath, -1, nullptr, 0, nullptr, nullptr);
+    if (needed <= 1)
+        return "";
+    std::string p(static_cast<size_t>(needed - 1), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, wpath, -1, p.data(), needed, nullptr, nullptr);
     const char* marker = ".ofx.bundle";
     size_t pos = p.find(marker);
     if (pos == std::string::npos)
@@ -181,12 +234,14 @@ inline void writeSessionStart(const std::string& pluginName,
 #if defined(__APPLE__) || defined(__unix__)
     std::string sysname, nodename, release, version, machine;
     getUnameFields(sysname, nodename, release, version, machine);
-    (void)nodename; // omit hostname from log (uname nodename often equals machine name)
+    (void)nodename;
     f << "\t- OS: \n";
     f << "\t\t" << sysname << "\n";
     f << "\t\t" << release << "\n";
     f << "\t\t" << version << "\n";
     f << "\t\t" << machine << "\n";
+#elif defined(_WIN32)
+    f << "\t- OS: \n\t\tWindows\n";
 #endif
     f << "\t- CPU: \n\t\t" << getCpuInfo() << "\n";
     int cores = getCoreCount();

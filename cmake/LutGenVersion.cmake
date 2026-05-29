@@ -1,0 +1,46 @@
+# Parse VERSION for bundle stem, version_gen.h, and Info.plist placeholders.
+file(STRINGS "${CMAKE_SOURCE_DIR}/VERSION" LUTGEN_VERSION_LINE LIMIT_COUNT 1)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/VERSION")
+string(REGEX REPLACE "\r" "" LUTGEN_VERSION_LINE "${LUTGEN_VERSION_LINE}")
+string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" LUTGEN_TRIPLET "${LUTGEN_VERSION_LINE}")
+if(NOT LUTGEN_TRIPLET)
+  message(FATAL_ERROR "VERSION first line must start with major.minor.patch")
+endif()
+
+string(LENGTH "${LUTGEN_TRIPLET}" _lutgen_tlen)
+string(SUBSTRING "${LUTGEN_VERSION_LINE}" "${_lutgen_tlen}" -1 _lutgen_rest)
+string(STRIP "${_lutgen_rest}" LUTGEN_VERSION_SUFFIX)
+if(LUTGEN_VERSION_SUFFIX STREQUAL "")
+  set(LUTGEN_PLUGIN_VERSION_STR "${LUTGEN_TRIPLET}")
+else()
+  set(LUTGEN_PLUGIN_VERSION_STR "${LUTGEN_TRIPLET} ${LUTGEN_VERSION_SUFFIX}")
+endif()
+
+string(REPLACE "." ";" _lutgen_ver_parts "${LUTGEN_TRIPLET}")
+list(GET _lutgen_ver_parts 0 LUTGEN_VER_MAJOR)
+list(GET _lutgen_ver_parts 1 LUTGEN_VER_MINOR)
+list(GET _lutgen_ver_parts 2 LUTGEN_VER_PATCH)
+
+set(LUTGEN_PLUGIN_DISPLAY "${LUTGEN_TRIPLET}")
+set(LUTGEN_OFX_IDENTIFIER "com.LSP.LutGenerator.${LUTGEN_TRIPLET}")
+set(LUTGEN_OFX_BUNDLE_STEM "LSP_Simple_LUT_Generator_${LUTGEN_PLUGIN_DISPLAY}")
+set(LUTGEN_OFX_EXECUTABLE_NAME "${LUTGEN_OFX_BUNDLE_STEM}.ofx")
+set(LUTGEN_PLUGIN_ICON_NAME "com.LSP.LutGenerator.${LUTGEN_PLUGIN_DISPLAY}.png")
+# release/<stem>_<platform>/ — e.g. LSP_Simple_LUT_Generator_1.0.7_macos
+set(LUTGEN_RELEASE_FOLDER_MACOS "${LUTGEN_OFX_BUNDLE_STEM}_macos")
+set(LUTGEN_RELEASE_FOLDER_WINDOWS "${LUTGEN_OFX_BUNDLE_STEM}_windows")
+
+set(LUTGEN_VERSION_GEN "${CMAKE_SOURCE_DIR}/plugin/version_gen.h")
+
+configure_file(
+  "${CMAKE_SOURCE_DIR}/cmake/version_gen.h.in"
+  "${LUTGEN_VERSION_GEN}"
+  @ONLY
+)
+
+set(PLUGIN_NUMERIC_VERSION "${LUTGEN_TRIPLET}")
+set(PLUGIN_DISPLAY_VERSION "${LUTGEN_PLUGIN_VERSION_STR}")
+set(OFX_EXECUTABLE_NAME "${LUTGEN_OFX_EXECUTABLE_NAME}")
+set(PLUGIN_OFX_IDENTIFIER "${LUTGEN_OFX_IDENTIFIER}")
+
+add_custom_target(lutgen_gen_version ALL DEPENDS "${LUTGEN_VERSION_GEN}")

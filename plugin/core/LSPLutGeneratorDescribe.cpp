@@ -92,7 +92,7 @@ void describeLutGeneratorInContext(OFX::ImageEffectDescriptor& p_Desc, OFX::Cont
     reportBugBtn->setParent(*supportG);
     OFX::PushButtonParamDescriptor* openLogBtn = p_Desc.definePushButtonParam("lutGenOpenLog");
     openLogBtn->setLabels("Open Log", "Open Log", "Open Log");
-    openLogBtn->setHint("Open LutGenerator.log (~/Library/Application Support/LSP/).");
+    openLogBtn->setHint("Open LutGenerator.log (LSP app data folder — see log path in README).");
     openLogBtn->setParent(*supportG);
 
     page->addChild(*mainG);

@@ -306,9 +306,15 @@ static std::string lspLutGenNormalizeExportDirectory(const std::string& p_RawDir
     if (d.rfind("file://", 0) == 0)
         d = d.substr(7);
     d = lspLutGenDecodeUrlEscapes(d);
-    // Expand "~/" for typed paths.
-    if (d.size() >= 2 && d[0] == '~' && d[1] == '/') {
+    // Expand "~/" or "~\" for typed paths.
+    if (d.size() >= 2 && d[0] == '~' && (d[1] == '/' || d[1] == '\\')) {
+#if defined(_WIN32)
+        const char* home = std::getenv("USERPROFILE");
+        if (!home || home[0] == '\0')
+            home = std::getenv("HOME");
+#else
         const char* home = std::getenv("HOME");
+#endif
         if (home && home[0] != '\0')
             d = std::string(home) + d.substr(1);
     }

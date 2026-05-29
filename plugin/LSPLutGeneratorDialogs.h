@@ -2,5 +2,5 @@
 
 #include <string>
 
-/* macOS: panels must run on the main thread (OFX). Empty if cancelled. */
+/* Folder chooser for export path; must run on the UI thread (OFX). Empty if cancelled. */
 std::string LSPLutGenShowChooseFolderDialog(const char* p_DefaultDir);
