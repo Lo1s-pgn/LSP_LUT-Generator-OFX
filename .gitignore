@@ -1,3 +1,6 @@
+.DS_Store
+Thumbs.db
+
 # Build outputs
 build/
 plugin/version_gen.h
