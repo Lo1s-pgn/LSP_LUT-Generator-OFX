@@ -146,19 +146,6 @@ Quit Resolve completely, then reopen it.
 
 - If your Mac account has **no login password**, the **Open Anyway** step may not work reliably — use Method 1 instead.
 - If still missing in Resolve, elete the OFX cache (path in [Installation](#installation) above) and relaunch.
-## Repository layout
-
-```
-CMakeLists.txt          # Root build (macOS + Windows)
-cmake/                  # LutGenVersion, LutGenApple, LutGenWindows, LutGenCommon
-plugin/core/            # Portable OFX logic (CPU render + .cube export)
-plugin/macos/           # AppKit folder dialog
-plugin/windows/         # IFileOpenDialog folder dialog
-openfx-sdk/             # Vendored minimal OpenFX 1.5.1 + Support layer
-tools/                  # Optional build helpers (see tools/README.md)
-```
-
-Build intermediates: `build/macos/` or `build/windows/`. Shippable output: `release/LSP_Simple_LUT_Generator_<version>_macos/` or `_windows/`.
 
 ## SDK
 
